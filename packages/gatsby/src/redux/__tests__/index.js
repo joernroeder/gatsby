@@ -11,14 +11,35 @@ const {
 const mockWrittenContent = new Map()
 jest.mock(`fs-extra`, () => {
   return {
-    writeFileSync: jest.fn((file, content) =>
-      mockWrittenContent.set(file, content)
-    ),
-    readFileSync: jest.fn(file => mockWrittenContent.get(file)),
+    writeFileSync: jest.fn((file, content) => {
+      global.console.log(
+        `writeFileSync(` + file + `, ` + content.length + ` bytes)`
+      )
+      let r = mockWrittenContent.set(file, content)
+      global.console.log(
+        ` afterwards -> ` +
+          mockWrittenContent.has(file) +
+          ` (` +
+          mockWrittenContent.get(file)?.length +
+          ` bytes)`
+      )
+      return r
+    }),
+    readFileSync: jest.fn(file => {
+      global.console.log(
+        `readFileSync(` +
+          file +
+          `) -> ` +
+          mockWrittenContent.has(file) +
+          ` (` +
+          mockWrittenContent.get(file)?.length +
+          ` bytes)`
+      )
+      global.console.log(mockWrittenContent.get(file))
+      return mockWrittenContent.get(file)
+    }),
     renameSync: jest.fn((from, to) => {
-      // This will only work for folders if they are always the full prefix
-      // of the file... (that goes for both input dirs). That's the case here.
-
+      global.console.log(`renameSync(` + from + `, ` + to + `)`)
       if (mockWrittenContent.has(to)) {
         throw new Error(`File/folder exists`)
       }
@@ -28,21 +49,41 @@ jest.mock(`fs-extra`, () => {
         if (key.startsWith(from)) {
           // rename('foo/bar', 'a/b/c') => foo/bar/ding.js -> a/b/c/ding.js
           // (.replace with string arg will only replace the first occurrence)
+          global.console.log(`  - renaming`, key, `to`, key.replace(from, to))
           mockWrittenContent.set(
             key.replace(from, to),
             mockWrittenContent.get(key)
           )
           mockWrittenContent.delete(key)
+
+          global.console.log(
+            ` -> ` +
+              mockWrittenContent.has(key.replace(from, to)) +
+              ` (` +
+              mockWrittenContent.get(key.replace(from, to))?.length +
+              ` bytes)`
+          )
         }
       })
     }),
-    existsSync: jest.fn(target => mockWrittenContent.has(target)),
-    mkdtempSync: jest.fn(suffix => {
-      let dir = `some/tmp` + suffix + Math.random()
-      mockWrittenContent.set(dir, Buffer.from(`empty dir`))
-      return dir
+    existsSync: jest.fn(target => {
+      global.console.log(
+        `existsSync(` +
+          target +
+          `) -> ` +
+          mockWrittenContent.has(target) +
+          ` (` +
+          mockWrittenContent.get(target)?.length +
+          ` bytes)`
+      )
+      return mockWrittenContent.has(target)
     }),
-    removeSync: jest.fn(file => mockWrittenContent.delete(file)),
+    mkdtempSync: jest.fn(suffix => {
+      let d = `some/tmp` + suffix + Math.random()
+      global.console.log(`mkdtempSync(` + suffix + `) -> ` + d)
+      mockWrittenContent.set(d, Buffer(`empty dir`))
+      return d
+    }),
   }
 })
 
