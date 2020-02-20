@@ -11,8 +11,15 @@ import {
 import { IReduxNode, ICachedReduxState } from "./types"
 import { sync as globSync } from "glob"
 
-const legacyCacheFile = path.join(process.cwd(), `.cache/redux.state`)
-const reduxCacheFolder = path.join(process.cwd(), `.cache/redux`)
+const getLegacyCacheFile = (): string => {
+  // TODO: remove this legacy stuff in v3 (fairly benign change but still)
+  // This is a function for the case that somebody does a process.chdir (#19800)
+  return path.join(process.cwd(), `.cache/redux.state`)
+}
+const getReduxCacheFolder = (): string => {
+  // This is a function for the case that somebody does a process.chdir (#19800)
+  return path.join(process.cwd(), `.cache/redux`)
+}
 function reduxRestFile(dir: string): string {
   return path.join(dir, `redux.rest.state`)
 }
@@ -21,8 +28,7 @@ function reduxChunkFilePrefix(dir: string): string {
 }
 
 function readFromLegacyCache(): ICachedReduxState {
-  // TODO: remove this bit with next major bump (fairly benign change but still)
-  return v8.deserialize(readFileSync(legacyCacheFile))
+  return v8.deserialize(readFileSync(getLegacyCacheFile()))
 }
 
 export function readFromCache(): ICachedReduxState {
@@ -31,6 +37,8 @@ export function readFromCache(): ICachedReduxState {
   // Each chunk is stored in its own file, this circumvents max buffer lengths
   // for sites with a _lot_ of content. Since all nodes go into a Map, the order
   // of reading them is not relevant.
+
+  const reduxCacheFolder = getReduxCacheFolder()
 
   if (!existsSync(reduxCacheFolder)) {
     return readFromLegacyCache()
@@ -130,6 +138,8 @@ export function writeToCache(contents: ICachedReduxState): void {
   // is just stale. If the second rename fails, the cache is empty. In either
   // case the cache is not left in a corrupt state.
 
+  const reduxCacheFolder = getReduxCacheFolder()
+
   let bakName = ``
   if (existsSync(reduxCacheFolder)) {
     // Don't drop until after swapping over (renaming is less likely to fail)
@@ -141,8 +151,9 @@ export function writeToCache(contents: ICachedReduxState): void {
 
   // Now try to yolorimraf the old cache folder
   try {
-    if (existsSync(legacyCacheFile)) {
-      removeSync(legacyCacheFile)
+    const legacy = getLegacyCacheFile()
+    if (existsSync(legacy)) {
+      removeSync(legacy)
     }
     if (bakName !== ``) {
       removeSync(bakName)

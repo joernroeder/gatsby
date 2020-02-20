@@ -9,6 +9,7 @@ const {
 } = require(`../actions`)
 
 const mockWrittenContent = new Map()
+const mockCompatiblePath = path
 jest.mock(`fs-extra`, () => {
   return {
     writeFileSync: jest.fn((file, content) => {
@@ -66,6 +67,25 @@ jest.mock(`fs-extra`, () => {
         }
       })
     }),
+    removeSync: jest.fn(target => {
+      global.console.log(
+        `removeSync(` +
+          target +
+          `) -> ` +
+          mockWrittenContent.has(target) +
+          ` (` +
+          mockWrittenContent.get(target)?.length +
+          ` bytes)`
+      )
+      mockWrittenContent.delete(target)
+      global.console.log(
+        `  after -> ` +
+          mockWrittenContent.has(target) +
+          ` (` +
+          mockWrittenContent.get(target)?.length +
+          ` bytes)`
+      )
+    }),
     existsSync: jest.fn(target => {
       global.console.log(
         `existsSync(` +
@@ -79,7 +99,7 @@ jest.mock(`fs-extra`, () => {
       return mockWrittenContent.has(target)
     }),
     mkdtempSync: jest.fn(suffix => {
-      let d = `some/tmp` + suffix + Math.random()
+      let d = mockCompatiblePath.join(`some`, `tmp` + suffix + Math.random())
       global.console.log(`mkdtempSync(` + suffix + `) -> ` + d)
       mockWrittenContent.set(d, Buffer(`empty dir`))
       return d
@@ -91,6 +111,7 @@ describe(`redux db`, () => {
   const initialComponentsState = _.cloneDeep(store.getState().components)
 
   beforeEach(() => {
+    console.log(`## test pre-start`)
     store.dispatch(
       createPage(
         {
@@ -112,6 +133,7 @@ describe(`redux db`, () => {
   })
 
   it(`should write cache to disk`, async () => {
+    console.log(`## test 1 start`)
     expect(initialComponentsState).toEqual(new Map())
 
     await saveState()
@@ -136,6 +158,7 @@ describe(`redux db`, () => {
   })
 
   it(`should drop legacy file if exists`, async () => {
+    console.log(`## test 2 start`)
     expect(initialComponentsState).toEqual(new Map())
 
     const legacyLocation = path.join(process.cwd(), `.cache/redux.state`)
